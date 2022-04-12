@@ -17,5 +17,5 @@ resource "azurerm_role_definition" "custom_role" {
   ]
 }
 locals {
-  output_role_ids = { for k,v in azurerm_role_definition.custom_role : k => v.id }
+  output_role_ids = { for k,v in azurerm_role_definition.custom_role : k => v.role_definition_resource_id }
 }

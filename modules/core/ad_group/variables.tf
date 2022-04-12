@@ -19,5 +19,5 @@ variable "scopes" {
 variable "custom_roles" {
   type        = map(string)
   description = "map of custom roles to role definition id"
-  default     = []
+  default     = {}
 }

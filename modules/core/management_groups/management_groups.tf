@@ -2,65 +2,48 @@ provider "azurerm" {
   features {}
 }
 
-module "name_policy_mg_toplevel" {
-  source        = "../../internal/name_policy"
-  resource_type = "mg"
-  application   = var.toplevel_name
-  region        = null
-  environment   = null
-}
-
-resource "azurerm_management_group" "toplevel" {
-  display_name               = module.name_policy_mg_toplevel.name
-  parent_management_group_id = var.toplevel_parent
-}
-
-module "name_policy_mg_hub" {
-  source        = "../../internal/name_policy"
-  resource_type = "mg"
-  application   = var.hub_name
-  region        = null
-  environment   = null
-}
-
-resource "azurerm_management_group" "hub" {
-  display_name               = module.name_policy_mg_hub.name
-  parent_management_group_id = azurerm_management_group.toplevel.id
+data "azurerm_management_group" "parent" {
+  display_name = var.parent_management_group_display_name
 }
 
 module "name_policy_mg_workload" {
   source        = "../../internal/name_policy"
+  for_each      = var.management_groups
   resource_type = "mg"
-  application   = var.workload_name
+  application   = each.value.display_name
   region        = null
   environment   = null
 }
 
-resource "azurerm_management_group" "workload" {
-  display_name               = module.name_policy_mg_workload.name
-  parent_management_group_id = azurerm_management_group.toplevel.id
+resource "azurerm_management_group" "level_0" {
+  for_each                   = { for k, v in var.management_groups : k => v if v.level == 0 }
+  display_name               = module.name_policy_mg_workload[each.key].name
+  parent_management_group_id = data.azurerm_management_group.parent.id
 }
 
-module "name_policy_mg_workload_env" {
-  source        = "../../internal/name_policy"
-  for_each      = var.environments
-  resource_type = "mg"
-  application   = var.workload_name
-  region        = null
-  environment   = each.key
+resource "azurerm_management_group" "level_1" {
+  for_each                   = { for k, v in var.management_groups : k => v if v.level == 1 }
+  display_name               = module.name_policy_mg_workload[each.key].name
+  parent_management_group_id = azurerm_management_group.level_0[each.value.parent].id
 }
 
-resource "azurerm_management_group" "workload_env" {
-  for_each                   = var.environments
-  display_name               = module.name_policy_mg_workload_env[each.key].name
-  parent_management_group_id = azurerm_management_group.workload.id
+resource "azurerm_management_group" "level_2" {
+  for_each                   = { for k, v in var.management_groups : k => v if v.level == 2 }
+  display_name               = module.name_policy_mg_workload[each.key].name
+  parent_management_group_id = azurerm_management_group.level_1[each.value.parent].id
+}
+
+resource "azurerm_management_group" "level_3" {
+  for_each                   = { for k, v in var.management_groups : k => v if v.level == 3 }
+  display_name               = module.name_policy_mg_workload[each.key].name
+  parent_management_group_id = azurerm_management_group.level_2[each.value.parent].id
 }
 
 locals {
   output_management_group_ids = merge(
-    { toplevel = azurerm_management_group.toplevel.id
-      hub      = azurerm_management_group.hub.id
-      workload = azurerm_management_group.workload.id
-    },
-  { for s in keys(azurerm_management_group.workload_env) : s => azurerm_management_group.workload_env[s].id })
+    { for k, v in azurerm_management_group.level_0 : k => v.id },
+    { for k, v in azurerm_management_group.level_1 : k => v.id },
+    { for k, v in azurerm_management_group.level_2 : k => v.id },
+    { for k, v in azurerm_management_group.level_3 : k => v.id }
+  )
 }

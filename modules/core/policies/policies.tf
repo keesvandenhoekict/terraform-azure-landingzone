@@ -2,6 +2,10 @@ provider "azurerm" {
   features {}
 }
 
+module "predefined_parameters" {
+  source = "../../internal/policy_predefined_list"
+}
+
 resource "azurerm_policy_definition" "policy" {
   for_each = var.policies
 
@@ -11,8 +15,8 @@ resource "azurerm_policy_definition" "policy" {
   display_name        = each.value.display_name
   metadata            = jsonencode(each.value.metadata)
   policy_rule         = each.value.policy_rule
-  management_group_id = each.value.management_group == null ? null : var.management_groups[each.value.management_group]
-  parameters          = jsonencode(each.value.parameters)
+  management_group_id = var.management_group
+  parameters          = jsonencode(merge(each.value.parameters, [for predef in each.value.predefined_params : module.predefined_parameters.policy_parameters[predef]]...))
 }
 
 locals {

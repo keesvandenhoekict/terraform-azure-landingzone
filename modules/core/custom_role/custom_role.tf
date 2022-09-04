@@ -1,7 +1,3 @@
-provider "azurerm" {
-  features {}
-}
-
 resource "azurerm_role_definition" "custom_role" {
   name  = var.custom_role.name
   scope = var.management_group[var.var.custom_role.management_group_scopes[0]]

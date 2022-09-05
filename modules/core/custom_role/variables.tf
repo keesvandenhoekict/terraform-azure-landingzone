@@ -1,4 +1,4 @@
-variable "custom_roles" {
+variable "custom_role" {
   type = object({
     name                    = string
     management_group_scopes = list(string)
